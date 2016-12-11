@@ -4,6 +4,7 @@ var MarkdownIt = require('markdown-it');
 var hljs = require('highlight.js');
 var server = require('http').createServer(httpHandler),
     exec = require('child_process').exec,
+    exportFile = require('./exportFile.js')
     io = require('socket.io').listen(server),
     os = require('os'),
     send = require('send');
@@ -119,6 +120,7 @@ function httpHandler(req, res) {
 
     case 'DELETE':
       io.sockets.emit('die');
+      exportFile(lastWrittenMarkdown)
       process.exit();
       break;
 
