@@ -1,7 +1,7 @@
 const fs = require('fs')
 const temp = require('temp')
 
-function mdToStaticHtml(markdownBody, syntaxHighlightCss, markdownCss) {
+function mdToStaticHtml(markdownBody, syntaxHighlightCss, markdownCss, customStyle) {
   return `<!DOCTYPE html>
     <html lang="en" class="">
     <head>
@@ -30,6 +30,7 @@ function mdToStaticHtml(markdownBody, syntaxHighlightCss, markdownCss) {
           color: red;
         }
       </style>
+      ${customStyle || ''}
     </head>
     <body>
       <div class="wrapper">
@@ -50,18 +51,87 @@ function mdToStaticHtml(markdownBody, syntaxHighlightCss, markdownCss) {
     </html>`
 }
 
-function newTempHtmlFile(html, callback) {
-  //const tempPath = temp.path({suffix: '.htm'})
-  fs.writeFile('/home/gesuwall/Downloads/md.html', html, 'utf8', callback)
+function readCssFiles(markdown, syntax, callback) {
+  fs.readFile(markdown, function (err, markdownData) {
+    if (err) callback(err)
+    else
+      fs.readFile(syntax, function (err, syntaxData) {
+        if (err) callback(err)
+        else
+          callback(null, markdownData.toString('utf-8'), syntaxData.toString('utf-8'))
+      })
+  })
+}
+/*
+function renderPageInPhantom(originPath, destPath, callback) {
+  phantom.create().then(function (phantom) {
+    return phantom.createPage()
+  }).then(function (page) {
+    page.property('viewportSize', { width: 1020, height: 768 })
+    page.property('paperSize', { format: 'A4', orientation: 'portrait', margin: '1cm' })
+    page.property('zoomFactor', 1.5)
+    page.open(originPath).then(function (status) {
+      return page.render(destPath)
+    })
+    .then(function () {
+      console.log('callback page')
+      callback(page)
+    })
+  })
+}
+*/
+function toHtml(dest, content, callback) {
+  const pageWidth = 960
+  const customStyle = `
+    <style>
+      #readme .markdown-body {
+          border: 0px solid #ddd;
+      }
+      #js-repo-pjax-container {
+        width: ${pageWidth}px;
+      }
+
+      .markdown-body {
+        min-width: 200px;
+        max-width: ${pageWidth}px;
+      }
+    </style>
+    `
+  readCssFiles(__dirname + '/github-markdown.css',
+    __dirname + '/github-syntax-highlight.css',
+    function (readError, markdownCss, syntaxHighlightCss) {
+      if (readError)
+        callback(readError)
+      else {
+        const html = mdToStaticHtml(content, markdownCss, syntaxHighlightCss, customStyle)
+        fs.writeFile(dest, html, 'utf-8', function (writeError) {
+          if(writeError)
+            callback(writeError)
+          else
+            callback(null)
+        })
+      }
+    })
 }
 
-module.exports = function (content) {
-  const markdownCss = fs.readFileSync(__dirname + '/github-markdown.css')
-                              .toString('utf-8')
-  const syntaxHighlightCss = fs.readFileSync(__dirname + '/github-syntax-highlight.css')
-                              .toString('utf-8')
+/*
+function toPdf(dest, content, callback) {
+  readCssFiles(__dirname + '/github-markdown.css',
+    __dirname + '/github-syntax-highlight.css',
+    function (readError, markdownCss, syntaxHighlightCss) {
+      const tempPath = temp.path({suffix: '.htm'})
+      toHtml(tempPath, content, function (htmlError) {
+        if (htmlError) callback(htmlError)
+        else
+          renderPageInPhantom(tempPath, dest, function (page) {
+              //cleanup
+              fs.unlink(tempPath)
+              page.close()
 
-  const html = mdToStaticHtml(content, markdownCss, syntaxHighlightCss)
-  fs.writeFileSync('/home/gesuwall/Downloads/md.html', html, 'utf-8')
-
+              callback(null)
+          })
+      })
+    })
 }
+*/
+module.exports = toHtml

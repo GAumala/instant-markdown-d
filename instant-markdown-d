@@ -120,8 +120,10 @@ function httpHandler(req, res) {
 
     case 'DELETE':
       io.sockets.emit('die');
-      exportFile(lastWrittenMarkdown)
-      process.exit();
+      exportFile('./md.html', lastWrittenMarkdown, function (error) {
+        if(error) console.error(error)
+        process.exit();
+      })
       break;
 
     case 'PUT':

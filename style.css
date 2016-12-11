@@ -1,0 +1,14 @@
+.markdown-body {
+    min-width: 200px;
+    max-width: 790px;
+    margin: 0 auto;
+    padding: 30px;
+  }
+  #con-error {
+    position: fixed;
+    top: 0px;
+    right: 0px;
+    padding: 5px;
+    background: white;
+    color: red;
+  }
