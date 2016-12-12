@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-var MarkdownIt = require('markdown-it');
-var hljs = require('highlight.js');
+var md = require('./markdown');
 var server = require('http').createServer(httpHandler),
-    exec = require('child_process').exec,
-    exportFile = require('./exportFile.js')
+    htmlFiles = require('./htmlFiles.js')
     io = require('socket.io').listen(server),
-    os = require('os'),
+    openBrowser = require('./openBrowser.js'),
     send = require('send');
+
+htmlFiles.initIndexPage(process.env.INSTANT_MARKDOWN_PAGE_WIDTH)
 
 // WARNING: By setting this environment variable, anyone on your network may
 // run arbitrary code in your browser and read arbitrary files in the working
@@ -19,22 +19,6 @@ if (process.env.INSTANT_MARKDOWN_OPEN_TO_THE_WORLD) {
   // Listen locally.
   server.listen(8090, '127.0.0.1', onListening).once('error', onServerError);
 }
-
-var md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  highlight: function(str, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(lang, str).value;
-      } catch (err) {
-        // Do nothing
-      }
-    } else {
-      return str;
-    }
-  }
-});
 
 var lastWrittenMarkdown = '';
 function writeMarkdown(body) {
@@ -120,10 +104,7 @@ function httpHandler(req, res) {
 
     case 'DELETE':
       io.sockets.emit('die');
-      exportFile('./md.html', lastWrittenMarkdown, function (error) {
-        if(error) console.error(error)
-        process.exit();
-      })
+      process.exit();
       break;
 
     case 'PUT':
@@ -145,13 +126,7 @@ io.sockets.on('connection', function(sock){
 
 
 function onListening() {
-  if (os.platform() === 'win32') {
-    exec('start /b http://localhost:8090', function(error, stdout, stderr){});
-  } else if (os.platform() === 'darwin') {
-    exec('open -g http://localhost:8090', function(error, stdout, stderr){});
-  } else { // assume unix/linux
-    exec('xdg-open http://localhost:8090', function(error, stdout, stderr){});
-  }
+  openBrowser('http://localhost:8090')
   readAllInput(process.stdin, function(body) {
     writeMarkdown(body);
   });

@@ -1,0 +1,99 @@
+#!/usr/bin/env node
+
+const fs = require('fs')
+const path = require('path')
+
+const htmlFiles = require('./htmlFiles.js')
+const md = require('./markdown.js')
+const openBrowser = require('./openBrowser.js')
+
+
+
+function mdToStaticHtml(template, highlightCss, markdownCss, markdownBody, pageCss) {
+  return htmlFiles.parseHtmlTemplate(template, {
+    highlightCss: highlightCss,
+    markdownCss: markdownCss,
+    pageCss: pageCss,
+    markdownBody: markdownBody,
+    noBorder: true,
+    noJS: true,
+    pageWidth: 960,
+  })
+}
+
+function readFilePromise(filepath) {
+  return new Promise(function (resolve, reject) {
+    fs.readFile(filepath, function (err, data) {
+      if (err) reject (err);
+      else resolve (data);
+    })
+  })
+}
+
+function readTemplateFiles(html, highlight, markdown, pageStyle, callback) {
+  let htmlString, highlightString, markdownString, pageStyleString;
+  readFilePromise(html)
+    .then(function (data) {
+      htmlString = data.toString('utf-8');
+      return readFilePromise(markdown);
+    }, callback)
+    .then(function (data) {
+      markdownString = data.toString('utf-8');
+      return readFilePromise(pageStyle);
+    }, callback)
+    .then(function (data) {
+      pageStyleString = data.toString('utf-8');
+      return readFilePromise(highlight);
+    }, callback)
+    .then(function (data) {
+      highlightString = data.toString('utf-8');
+      callback(null, htmlString, highlightString, markdownString, pageStyleString);
+    }, callback)
+}
+
+function toHtml(dest, content, callback) {
+  const pageWidth = 960
+
+  readTemplateFiles(__dirname + '/index.html', __dirname + '/github-syntax-highlight.css',
+    __dirname + '/github-markdown.css', __dirname + '/style.css',
+    function (readError, htmlTemplate, syntaxHighlightCss, markdownCss, pageCss) {
+      if (readError)
+        callback(readError);
+      else {
+        const html = mdToStaticHtml(htmlTemplate,
+          `<style>${syntaxHighlightCss}</style>`, `<style>${markdownCss}</style>`,
+          content, `<style>${pageCss}</style>`);
+        fs.writeFile(dest, html, 'utf-8', function (writeError) {
+          if(writeError)
+            callback(writeError);
+          else
+            callback(null);
+        })
+      }
+    })
+}
+
+if(process.argv.length < 2) {
+  console.log(`not enough arguments: ${process.argv}`)
+  process.exit(1);
+}
+const filepath = process.argv[2];
+const ext = path.extname(filepath).toLowerCase()
+
+if (ext !== '.md' && ext !== 'markdown') {
+  console.log(`invalid file extension: ${filepath}`)
+  process.exit(1);
+}
+
+  const destination = filepath.replace(ext, '.html');
+  console.log(destination)
+
+readFilePromise(filepath)
+  .then(function (data) {
+    const fileMarkdown = md.render(data.toString('utf-8'));
+    toHtml(destination, fileMarkdown, function (err) {
+      openBrowser(destination)
+    })
+  }, function (err) {
+    console.log('could not read file:', filepath, '\n', err)
+  })
